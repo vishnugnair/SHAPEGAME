@@ -93,7 +93,7 @@ class ShapeRoom extends Room {
 gameServer.define("shape_room", ShapeRoom);
 
 // Start the server
-const PORT = 3000;
+const PORT = process.env.port || 3000;
 server.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });
