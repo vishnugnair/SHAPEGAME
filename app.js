@@ -4,7 +4,7 @@
 
 // Colyseus Client Setup
 const Colyseus = window.Colyseus;
-const client = new Colyseus.Client("ws://localhost:3000"); // Colyseus server address
+const client = new Colyseus.Client("wss://shapegame.onrender.com"); // Colyseus server address
 
 // Global Variables
 var canvas = document.getElementById("myCanvas");

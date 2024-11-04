@@ -1,10 +1,22 @@
 const express = require("express");
 const path = require("path");
 const http = require("http");
+const cors = require("cors");
 const { Server } = require("colyseus");
 const { Room } = require("colyseus");
 
 const app = express();
+
+// Configure CORS to allow requests from your frontend origin
+app.use(
+  cors({
+    origin: "https://shapegame.onrender.com", // Replace with your frontend URL
+    methods: ["GET", "POST"],
+    allowedHeaders: ["Content-Type"],
+    credentials: true,
+  })
+);
+
 const server = http.createServer(app);
 
 const gameServer = new Server({
@@ -82,7 +94,7 @@ class ShapeRoom extends Room {
 
 gameServer.define("shape_room", ShapeRoom);
 
-const PORT = process.env.port || 3000;
+const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
+  console.log(`Server is running on port ${PORT}`);
 });
