@@ -1,24 +1,17 @@
-// Import Colyseus (make sure you include the Colyseus client script in your HTML file)
-
-// Import Colyseus (make sure you include the Colyseus client script in your HTML file)
-
-// Colyseus Client Setup
 const Colyseus = window.Colyseus;
 const client = new Colyseus.Client("wss://shapegame.onrender.com"); // Colyseus server address
 
-// Global Variables
 var canvas = document.getElementById("myCanvas");
 var engine = new BABYLON.Engine(canvas, true);
 var scene = new BABYLON.Scene(engine);
 
-// Add instructions to the page
 const instructionsDiv = document.createElement("div");
 instructionsDiv.innerHTML = `
   <h2>How to Use the App</h2> 
   <ul>
      <li>This is a multiplayer environment where you and other users can see each other's shapes in real time.</li>
-    <li><b>To draw a shape:</b> Enable draw mode and left-click on the canvas to place points.</li>
-    <li><b>To create a 3D shape:</b> Right-click after drawing a closed shape to extrude it.</li>
+    <li><b>To draw a shape:</b> Enable draw mode and tap or click on the canvas to place points.</li>
+    <li><b>To create a 3D shape:</b> Use the "Extrude" button after drawing a closed shape.</li>
     <li><b>To move a shape:</b> Select "Move" mode, click on a 3D shape, and drag it across the plane.</li>
     <li><b>Interaction:</b> Your shapes will be visible to other users, and vice versa, in real time.</li>
   </ul>
@@ -34,20 +27,30 @@ document.body.insertBefore(instructionsDiv, canvas);
 const buttonContainer = document.createElement("div");
 buttonContainer.style.marginBottom = "0px";
 
+// Draw Button
 const drawButton = document.createElement("button");
 drawButton.textContent = "Draw";
 drawButton.style.fontSize = "20px";
 drawButton.onclick = enterDrawMode;
 buttonContainer.appendChild(drawButton);
 
+// Move Button
 const moveButton = document.createElement("button");
 moveButton.textContent = "Move";
 moveButton.style.fontSize = "20px";
 moveButton.onclick = enterMoveMode;
 buttonContainer.appendChild(moveButton);
 
+// Extrude Button
+const extrudeButton = document.createElement("button");
+extrudeButton.textContent = "Extrude";
+extrudeButton.style.fontSize = "20px";
+extrudeButton.onclick = extrudeShape;
+buttonContainer.appendChild(extrudeButton);
+
 document.body.insertBefore(buttonContainer, canvas);
 
+// Initialize Camera
 const camera = new BABYLON.ArcRotateCamera(
   "Camera",
   0,
@@ -82,7 +85,6 @@ ground.edgesWidth = 4.0;
 ground.edgesColor = new BABYLON.Color4(0, 0, 0, 1);
 
 // Colyseus room initialization
-
 client.joinOrCreate("shape_room").then((joinedRoom) => {
   room = joinedRoom;
 
@@ -98,7 +100,6 @@ client.joinOrCreate("shape_room").then((joinedRoom) => {
   room.onMessage("moveShape", (data) => {
     const shape = scene.getMeshByID(data.shapeId);
     if (shape) {
-      // Optional: Implementing interpolation for smooth movement
       BABYLON.Animation.CreateAndStartAnimation(
         "shapeMove",
         shape,
@@ -133,20 +134,18 @@ function enterDrawMode() {
 }
 
 // Render a shape received from Colyseus
-
 function renderShape(data) {
   const shape = data.shapeData.map((p) => new BABYLON.Vector3(p.x, p.y, p.z));
   const shapeId = data.shapeId || "shapeExtruded" + shapesToExtrude.length;
 
   if (data.extruded) {
-    // Create the extruded shape
     const extrusion = BABYLON.MeshBuilder.ExtrudePolygon(
       shapeId,
       { shape: shape, depth: data.depth },
       scene
     );
     extrusion.position.y = 5;
-    extrusion.id = shapeId; // Ensure unique ID
+    extrusion.id = shapeId;
     const material = new BABYLON.StandardMaterial("extrudedMaterial", scene);
     material.emissiveColor = new BABYLON.Color3(1, 1, 0); // Bright yellow
     extrusion.material = material;
@@ -154,7 +153,6 @@ function renderShape(data) {
     extrusion.edgesWidth = 4.0;
     extrusion.edgesColor = new BABYLON.Color4(0, 0, 0, 1);
   } else {
-    // Create the 2D shape lines if not extruded
     const lines = BABYLON.MeshBuilder.CreateLines(
       "lines" + shapesToExtrude.length,
       { points: shape },
@@ -174,35 +172,9 @@ function handlePointer(pointerInfo) {
     var pickInfo = pointerInfo.pickInfo;
     switch (pointerInfo.type) {
       case BABYLON.PointerEventTypes.POINTERDOWN:
-        if (
-          pointerInfo.event.inputIndex == 2 &&
-          pickInfo.pickedMesh &&
-          (pickInfo.pickedMesh.id === "ground" ||
-            pickInfo.pickedMesh.id === "lines")
-        ) {
+        if (pickInfo.pickedMesh && pickInfo.pickedMesh.id === "ground") {
           points.push(pickInfo.pickedPoint);
           drawPointMarker(pickInfo.pickedPoint);
-        } else if (pointerInfo.event.inputIndex == 4) {
-          points.push(points[0]);
-          const shapeData = points.map((p) => ({ x: p.x, y: p.y, z: p.z }));
-          room.send("createShape", { shapeData });
-          renderShape({ shapeData });
-          points = [];
-        }
-        break;
-
-      // Check if a 3D shape is clicked for moving
-      case BABYLON.PointerEventTypes.POINTERDOWN:
-        if (
-          moveMode &&
-          pickInfo.pickedMesh &&
-          pickInfo.pickedMesh.id.startsWith("shapeExtruded")
-        ) {
-          currentMesh = pickInfo.pickedMesh;
-          startingPoint = getGroundPosition(pointerInfo.event);
-          if (startingPoint) {
-            setTimeout(() => camera.detachControl(canvas), 0);
-          }
         }
         break;
     }
@@ -210,63 +182,28 @@ function handlePointer(pointerInfo) {
 }
 
 function drawPointMarker(point) {
-  var curShapeNumber = shapesToExtrude.length;
-  var curSphereWithinShape = points.length - 1;
   var sphere = BABYLON.MeshBuilder.CreateSphere(
-    "pointMarker" + curShapeNumber + "_" + curSphereWithinShape,
+    "pointMarker",
     { diameter: 0.5 },
     scene
   );
   sphere.position = point;
-
   var material = new BABYLON.StandardMaterial("pointMarkerMaterial", scene);
   material.emissiveColor = new BABYLON.Color3(1, 1, 1);
   sphere.material = material;
 }
 
-// Step 3: 2D-Shape Extrusion
-var shapesExtruded = [];
-
+// Extrude shape on button click
 function extrudeShape() {
-  drawMode = false;
-  moveMode = false;
-  vertexEditMode = false;
-  extrudeMode = true;
-
-  for (let i = 0; i < shapesToExtrude.length; i++) {
-    if (i == shapesExtruded.length) {
-      shapesExtruded.push(false);
-    }
-
-    if (shapesExtruded[i] == false) {
-      // Extruding shape with constant height = 5
-      var extrudedShapeUniqueId = "shapeExtruded" + i.toString();
-      const extrusion = BABYLON.MeshBuilder.ExtrudePolygon(
-        extrudedShapeUniqueId,
-        { shape: shapesToExtrude[i], depth: 5, updatable: true },
-        scene
-      );
-      extrusion.position.y = 5;
-
-      // Extruded shape UI Enhancements
-      var material = new BABYLON.StandardMaterial("extrudedMaterial", scene);
-      material.emissiveColor = new BABYLON.Color3(0, 128, 128);
-      extrusion.material = material;
-      extrusion.enableEdgesRendering();
-      extrusion.edgesWidth = 4.0;
-      extrusion.edgesColor = new BABYLON.Color4(0, 0, 0, 1);
-
-      // Marking as shape extruded
-      shapesExtruded[i] = true;
-
-      // Send extrusion data to the server
-      room.send("extrudeShape", {
-        shapeId: extrudedShapeUniqueId,
-        shapeData: shapesToExtrude[i],
-        depth: 5,
-      });
-    }
+  if (points.length < 3) {
+    alert("Complete the shape by adding more points.");
+    return;
   }
+  points.push(points[0]); // Close the shape
+  const shapeData = points.map((p) => ({ x: p.x, y: p.y, z: p.z }));
+  room.send("createShape", { shapeData });
+  renderShape({ shapeData, extruded: true, depth: 5 });
+  points = []; // Reset points after extrusion
 }
 
 // Step 4: Move/Edit the extruded shape
